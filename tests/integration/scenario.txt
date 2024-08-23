@@ -1,0 +1,12 @@
+This integration test covers the following scenario,
+1. Admin user logs in and a flag "password_change_required" set to true is seen in response
+2. UI redirects to password change page and admin user resets the password.
+3. Admin goes into user management page and users are listed automatically
+4. Admin adds a new user with advanced role
+5. advanced user logs in and flag "password_change_required" set to true is seen in response
+6. UI redirects to password change page and advanced user resets the password.
+7. Advanced user adds a service
+8. Advanced user visits corresponding service version page
+9. Advanced user adds 2 services
+10. Advanced user comes back to home page where version count is now shown as 2
+11. Advanced user filters and apply service-name based sorting and view the results in home page
