@@ -99,20 +99,20 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
-	apiServerError := make(chan error, 1)
+	serverError := make(chan error, 1)
 
-	apiServer := api.NewAPIServer(runtimeContext, &wg, config, db, logger)
-	serverRuntime := apiServer.StartAPIServer(&wg, apiServerError)
+	apiServer := api.NewAPIServer(runtimeContext, &wg, config, db, logger, serverError)
+	apiServer.StartAPIServer()
 
 	select {
-	case err := <-apiServerError:
+	case err := <-serverError:
 		logger.Errorf("Failed to run api server: %+v", err)
 		runtimeContextCancel()
 	case <-stop:
 		logger.Info("Received an OS signal, shutting down gracefully...")
 		runtimeContextCancel()
 		// Api server graceful shutdown
-		if err := serverRuntime.Shutdown(runtimeContext); err != nil {
+		if err := apiServer.Runtime.Shutdown(runtimeContext); err != nil {
 			logger.Errorf("Failed to shutdown api server gracefully: %+v", err)
 		}
 	}

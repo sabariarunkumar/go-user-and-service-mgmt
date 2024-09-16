@@ -22,30 +22,35 @@ const (
 
 // APIServer contains listener info and entities which will be used by underlying route endpoints
 type APIServer struct {
-	addr   string
-	config *configs.Config
-	ctx    context.Context
-	db     *gorm.DB
-	wg     *sync.WaitGroup
-	logger *zap.SugaredLogger
+	addr      string
+	config    *configs.Config
+	ctx       context.Context
+	db        *gorm.DB
+	wg        *sync.WaitGroup
+	logger    *zap.SugaredLogger
+	errorChan chan error
+
+	// exported for main module to use it
+	Runtime *http.Server
 }
 
 // NewAPIServer initializes entities for server and endpoint runtime
 func NewAPIServer(ctx context.Context, wg *sync.WaitGroup,
-	config *configs.Config, db *gorm.DB, logger *zap.SugaredLogger) *APIServer {
+	config *configs.Config, db *gorm.DB, logger *zap.SugaredLogger, serverErr chan error) *APIServer {
 
 	return &APIServer{
-		addr:   fmt.Sprintf(":%s", config.ServerPort),
-		config: config,
-		ctx:    ctx,
-		wg:     wg,
-		db:     db,
-		logger: logger,
+		addr:      fmt.Sprintf(":%s", config.ServerPort),
+		config:    config,
+		ctx:       ctx,
+		wg:        wg,
+		db:        db,
+		logger:    logger,
+		errorChan: serverErr,
 	}
 }
 
 // Run register routes across modules
-func (s *APIServer) StartAPIServer(wg *sync.WaitGroup, serverErr chan error) *http.Server {
+func (s *APIServer) StartAPIServer() {
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
@@ -63,14 +68,13 @@ func (s *APIServer) StartAPIServer(wg *sync.WaitGroup, serverErr chan error) *ht
 	serviceHandler := service.NewHandler(s.ctx, s.wg, s.logger, s.config, s.db)
 	serviceHandler.RegisterRoutes(v1Apis)
 
-	var server = &http.Server{Addr: ":8080", Handler: router}
+	s.Runtime = &http.Server{Addr: ":8080", Handler: router}
 
-	wg.Add(1)
+	s.wg.Add(1)
 	go func() {
-		defer wg.Done()
-		if err := server.ListenAndServe(); err != http.ErrServerClosed {
-			serverErr <- err
+		defer s.wg.Done()
+		if err := s.Runtime.ListenAndServe(); err != http.ErrServerClosed {
+			s.errorChan <- err
 		}
 	}()
-	return server
 }
